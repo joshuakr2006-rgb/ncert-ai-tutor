@@ -52,8 +52,8 @@
     </div>
 
     <script>
-        // REPLACE THIS WITH YOUR ACTUAL KEY FROM GOOGLE AI STUDIO
-        const API_KEY = "AIzaSyCWWi8ZcX3VcNANaD00uLMMMiQ4peOBx88"; 
+        // 1. PASTE YOUR FULL 39-CHARACTER KEY HERE
+        const API_KEY = "AIzaSyD_-TILxEv-VglBmEOJekJKT5tE0oHe_3g"; 
 
         const chatbox = document.getElementById('chatbox');
         const userInput = document.getElementById('userInput');
@@ -63,26 +63,29 @@
 
         async function handleSend() {
             const text = userInput.value.trim();
-            if (!text || API_KEY === "YOUR_API_KEY_HERE") {
-                if(API_KEY === "YOUR_API_KEY_HERE") alert("Please paste your Gemini API Key in the code!");
+            if (!text) return;
+
+            if (API_KEY.includes("YOUR_API_KEY")) {
+                alert("Please update the API_KEY variable in the code first!");
                 return;
             }
 
-            // 1. Show User Message
             addMessage(text, 'user');
             userInput.value = '';
 
-            // 2. Transliterate English text to Regional Script
             const langCode = langSelect.value;
             let nativeQuestion = text;
             
+            // Step 1: Transliteration via Google API
             try {
-                const transResponse = await fetch(`https://inputtools.google.com/request?text=${text}&itc=${langCode}&num=1`);
+                const transResponse = await fetch(`https://inputtools.google.com/request?text=${encodeURIComponent(text)}&itc=${langCode}&num=1`);
                 const transData = await transResponse.json();
                 nativeQuestion = transData[1][0][1][0];
-            } catch (e) { console.log("Transliteration failed, using raw text."); }
+            } catch (e) { 
+                console.log("Transliteration failed, using English input."); 
+            }
 
-            // 3. Call Gemini AI
+            // Step 2: Gemini AI Call with Detailed Diagnostics
             try {
                 const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`, {
                     method: 'POST',
@@ -97,11 +100,18 @@
                 });
 
                 const aiData = await aiResponse.json();
-                const finalAnswer = aiData.candidates[0].content.parts[0].text;
+
+                // If Google returns an error (invalid key, disabled API, etc.)
+                if (aiData.error) {
+                    addMessage(`<strong>Google Error:</strong> ${aiData.error.message}<br><br><small>Tip: Ensure 'Generative Language API' is enabled in your Google Cloud Project.</small>`, 'bot');
+                    return;
+                }
                 
+                const finalAnswer = aiData.candidates[0].content.parts[0].text;
                 addMessage(finalAnswer, 'bot');
+
             } catch (error) {
-                addMessage("I am sleeping right now! Please check your API key or internet connection.", 'bot');
+                addMessage("<strong>Connection Error:</strong> Check your internet or browser security settings.", 'bot');
             }
         }
 
