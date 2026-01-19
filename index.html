@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NCERT Regional AI Tutor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-slate-50 h-screen flex flex-col font-sans">
+
+    <header class="bg-indigo-700 text-white p-4 shadow-md flex justify-between items-center">
+        <div class="flex items-center gap-3">
+            <i class="fas fa-graduation-cap text-2xl"></i>
+            <div>
+                <h1 class="font-bold text-lg leading-tight">NCERT AI Tutor</h1>
+                <p class="text-[10px] text-indigo-200 uppercase tracking-wider">CBSE Grades 6-12</p>
+            </div>
+        </div>
+        <select id="langSelect" class="bg-indigo-800 border-none rounded-md px-3 py-2 text-sm outline-none cursor-pointer hover:bg-indigo-900 transition">
+            <option value="hi-t-i0-und">Hindi (हिन्दी)</option>
+            <option value="ta-t-i0-und">Tamil (தமிழ்)</option>
+            <option value="te-t-i0-und">Telugu (తెలుగు)</option>
+        </select>
+    </header>
+
+    <main id="chatbox" class="flex-1 overflow-y-auto p-6 space-y-6 flex flex-col">
+        <div class="flex gap-3">
+            <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow-sm shrink-0">
+                <i class="fas fa-robot text-xs"></i>
+            </div>
+            <div class="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-slate-200 max-w-[85%]">
+                <p class="text-slate-800 leading-relaxed text-sm">
+                    Namaste! I am your AI Tutor. Choose a language and type your NCERT question using English letters.
+                    <br><br>
+                    <strong>Try:</strong> "Prakash sanshleshan kya hai?"
+                </p>
+            </div>
+        </div>
+    </main>
+
+    <div class="p-4 bg-white border-t border-slate-200 shadow-2xl">
+        <div class="max-w-4xl mx-auto flex gap-3">
+            <input type="text" id="userInput" 
+                   placeholder="Type question here (e.g. Oms law kya hai?)..." 
+                   class="flex-1 bg-slate-100 border-none rounded-full px-6 py-3 outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm">
+            <button onclick="handleSend()" 
+                    class="bg-indigo-600 text-white w-12 h-12 rounded-full flex items-center justify-center hover:bg-indigo-700 hover:scale-105 active:scale-95 transition-all shadow-lg shrink-0">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // REPLACE THIS WITH YOUR ACTUAL KEY FROM GOOGLE AI STUDIO
+        const API_KEY = "AIzaSyCWWi8ZcX3VcNANaD00uLMMMiQ4peOBx88"; 
+
+        const chatbox = document.getElementById('chatbox');
+        const userInput = document.getElementById('userInput');
+        const langSelect = document.getElementById('langSelect');
+
+        userInput.addEventListener("keypress", (e) => { if (e.key === "Enter") handleSend(); });
+
+        async function handleSend() {
+            const text = userInput.value.trim();
+            if (!text || API_KEY === "YOUR_API_KEY_HERE") {
+                if(API_KEY === "YOUR_API_KEY_HERE") alert("Please paste your Gemini API Key in the code!");
+                return;
+            }
+
+            // 1. Show User Message
+            addMessage(text, 'user');
+            userInput.value = '';
+
+            // 2. Transliterate English text to Regional Script
+            const langCode = langSelect.value;
+            let nativeQuestion = text;
+            
+            try {
+                const transResponse = await fetch(`https://inputtools.google.com/request?text=${text}&itc=${langCode}&num=1`);
+                const transData = await transResponse.json();
+                nativeQuestion = transData[1][0][1][0];
+            } catch (e) { console.log("Transliteration failed, using raw text."); }
+
+            // 3. Call Gemini AI
+            try {
+                const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [{
+                                text: `You are an expert NCERT teacher for CBSE Grades 6-12. Answer this question accurately but simply in the same language/script provided: ${nativeQuestion}. Keep it within the NCERT syllabus.`
+                            }]
+                        }]
+                    })
+                });
+
+                const aiData = await aiResponse.json();
+                const finalAnswer = aiData.candidates[0].content.parts[0].text;
+                
+                addMessage(finalAnswer, 'bot');
+            } catch (error) {
+                addMessage("I am sleeping right now! Please check your API key or internet connection.", 'bot');
+            }
+        }
+
+        function addMessage(content, sender) {
+            const wrapper = document.createElement('div');
+            wrapper.className = sender === 'user' ? "flex justify-end" : "flex gap-3";
+
+            if (sender === 'bot') {
+                wrapper.innerHTML = `
+                    <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow-sm shrink-0">
+                        <i class="fas fa-robot text-xs"></i>
+                    </div>
+                    <div class="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-slate-200 text-slate-800 max-w-[85%] text-sm whitespace-pre-wrap">
+                        ${content}
+                    </div>`;
+            } else {
+                wrapper.innerHTML = `
+                    <div class="bg-indigo-600 text-white p-4 rounded-2xl rounded-tr-none shadow-md max-w-[85%] text-sm">
+                        ${content}
+                    </div>`;
+            }
+
+            chatbox.appendChild(wrapper);
+            chatbox.scrollTop = chatbox.scrollHeight;
+        }
+    </script>
+</body>
+</html>
